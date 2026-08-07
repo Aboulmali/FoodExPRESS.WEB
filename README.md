@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# 🍔 FoodExpress.Web — Frontend client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Application vitrine côté client de la plateforme de livraison **FoodExpress**. Consomme les microservices backend exclusivement via l'**API Gateway** (YARP, port 5000) — jamais d'appel direct aux services.
 
-Currently, two official plugins are available:
+Stack : **React 19** · **TypeScript** · **Vite 8** · **Tailwind CSS 4** · **shadcn/ui** (Radix UI) · **React Router 7** · **Sonner** (toasts) · **next-themes**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Fonctionnalités
 
-## React Compiler
+- **Catalogue** : liste des restaurants (images, notes, état ouvert/fermé), recherche filtrante, menu par catégorie
+- **Panier** : persistance localStorage — quantités `+ / −` bornées au stock, garde multi-restaurants, **réhydratation depuis le serveur** (prix/stock frais au chargement, snapshot de secours hors-ligne)
+- **Commande** : livraison en 2 étapes (panier → confirmation), puis suivi avec **mise à jour automatique toutes les 10 s** (polling) et toasts de changement de statut
+- **Auth** : inscription / connexion via Keycloak (JWT, session persistée), pages protégées
+- **Design** : thème clair (tokens verts) type dashboard Cloud Kitchen, sidebar + topbar, images `loading="lazy"` avec fallback (`SmartImage`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Démarrer
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # http://localhost:5173 — proxy /api → http://localhost:5000 (Gateway)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+En production : renseigner `VITE_API_URL` (ex. `https://api.foodexpress.ma`) — sans cela le front attend le proxy de dev.
+
+## 📦 Scripts
+
+| Commande | But |
+|---|---|
+| `npm run dev` | Dev server (HMR) |
+| `npm run build` | `tsc -b` + build Vite |
+| `npm run lint` | Oxlint |
+| `npm test` | Vitest (15 tests) |
+| `npm run test:watch` | Vitest watch mode |
+
+## 🧪 Tests
+
+Tests **Vitest + Testing Library** dans `src/context/` :
+
+- `cart.test.tsx` — ajout, bornes de stock, persistance localStorage, **réhydratation** (prix frais, 404/épuisé écartés, mode hors-ligne)
+- `auth.test.tsx` — login (token + décodage JWT), restauration de session, logout, register
+
+Modèle : `label` — l'API est mockée (`vi.mock`), pas de réseau.
+
+## 📁 Structure
+
+```
+src/
+├── components/    # AppLayout, CartDrawer, DishCard, RestaurantCard, SmartImage, ui/ (shadcn)…
+├── context/       # auth.tsx (session JWT), cart.tsx (panier + réhydratation)
+├── lib/           # api.ts (client HTTP + types), format.ts (MAD, statuts)
+├── pages/         # home, menu, login/register, orders, order-detail
+└── test/          # setup Vitest
+```
+
+## 🔗 Accès
+
+- Front : http://localhost:5173
+- Gateway : http://localhost:5000
+- Backend et architecture : voir `README.md` du dépôt `projet_cs/FoodExpress`
