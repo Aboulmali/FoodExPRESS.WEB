@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { Link } from "react-router-dom"
 import { ChevronRight, PackageOpen } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
 import type { OrderDto } from "../lib/api"
 import { useAuth } from "../context/auth"
+import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel, statusTone } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -25,11 +26,7 @@ export function OrdersPage() {
       .finally(() => setLoading(false))
   }, [user])
 
-  useEffect(() => {
-    load()
-    const timer = setInterval(load, 10000)
-    return () => clearInterval(timer)
-  }, [load])
+  usePolling(load, 10_000, !!user)
 
   if (loading) {
     return (

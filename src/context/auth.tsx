@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
-import { api, decodeJwt, setToken } from "../lib/api"
+import { api, clearSession, decodeJwt, getAccessToken, getRefreshToken, refreshAccessToken, setSessionTokens } from "../lib/api"
 import type { JwtUser } from "../lib/api"
 
 interface RegisterData {
@@ -9,7 +9,6 @@ interface RegisterData {
   firstName: string
   lastName: string
   phoneNumber: string
-  role?: number
 }
 
 interface AuthState {
@@ -19,19 +18,15 @@ interface AuthState {
   hasRole: (...roles: string[]) => boolean
   login: (email: string, password: string) => Promise<void>
   register: (data: RegisterData) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
 function readSession(): { user: JwtUser | null; token: string | null } {
-  const token = localStorage.getItem("foodexpress_token")
+  const token = getAccessToken()
   if (!token) return { user: null, token: null }
   return { user: decodeJwt(token), token }
-}
-
-function applyToken(token: string | null) {
-  setToken(token)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -39,8 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password)
-    localStorage.setItem("foodexpress_token", res.accessToken)
-    applyToken(res.accessToken)
+    setSessionTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken })
     setSession({ token: res.accessToken, user: decodeJwt(res.accessToken) })
   }, [])
 
@@ -48,23 +42,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.register(data)
   }, [])
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("foodexpress_token")
-    applyToken(null)
-    setSession({ token: null, user: null })
+  const logout = useCallback(async () => {
+    try {
+      if (getRefreshToken()) await api.logout()
+    } catch {
+      /* révoquant est best effort : on nettoie même si Keycloak est injoignable */
+    } finally {
+      clearSession()
+      setSession({ token: null, user: null })
+    }
   }, [])
+
+  // Renouvellement préventif : 60 s avant l'expiration du JWT
+  const expiresAt = session.token ? (decodeJwt(session.token)?.exp ?? 0) * 1000 : 0
+  useEffect(() => {
+    if (!expiresAt) return
+    const delay = Math.max(0, expiresAt - Date.now() - 60_000)
+    const timer = setTimeout(() => {
+      refreshAccessToken()
+        ?.then((fresh) => fresh && setSession({ token: fresh, user: decodeJwt(fresh) }))
+        .catch(() => undefined)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [expiresAt, session?.token])
 
   useEffect(() => {
     const onUnauthorized = () => {
-      if (session.token) logout()
+      if (session?.token) void logout()
     }
     window.addEventListener("foodexpress:unauthorized", onUnauthorized)
     return () => window.removeEventListener("foodexpress:unauthorized", onUnauthorized)
-  }, [session.token, logout])
+  }, [session?.token, logout])
 
   const roles = useMemo(
-    () => session.user?.roles ?? session.user?.realm_access?.roles ?? [],
-    [session.user],
+    () => session?.user?.roles ?? session?.user?.realm_access?.roles ?? [],
+    [session],
   )
 
   const hasRole = useCallback(
@@ -74,7 +86,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user: session.user, token: session.token, roles, hasRole, login, register, logout }}
+      value={{
+        user: session?.user ?? null,
+        token: session?.token ?? null,
+        roles,
+        hasRole,
+        login,
+        register,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

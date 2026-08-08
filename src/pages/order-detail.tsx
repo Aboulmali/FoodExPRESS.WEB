@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, MapPin, Phone, Store, X } from "lucide-react"
 import { toast } from "sonner"
@@ -19,6 +19,7 @@ import {
 } from "../components/ui/dialog"
 import { Separator } from "../components/ui/separator"
 import { Skeleton } from "../components/ui/skeleton"
+import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel } from "../lib/format"
 
 export function OrderDetailPage() {
@@ -47,14 +48,8 @@ export function OrderDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
-    load()
-    const timer = setInterval(() => {
-      if (order?.status === "Delivered" || order?.status === "Cancelled") return
-      load()
-    }, 10000)
-    return () => clearInterval(timer)
-  }, [load, order?.status])
+  const finalStatus = order?.status === "Delivered" || order?.status === "Cancelled"
+  usePolling(load, 10_000, !!id && !finalStatus)
 
   const cancel = async () => {
     if (!order) return

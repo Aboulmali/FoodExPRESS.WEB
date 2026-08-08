@@ -6,7 +6,7 @@ import { api } from "../lib/api"
 
 vi.mock("../lib/api", () => {
   return {
-    api: { login: vi.fn(), register: vi.fn() },
+    api: { login: vi.fn(), register: vi.fn(), logout: vi.fn() },
     decodeJwt: (jwt: string) => {
       const part = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")
       return JSON.parse(
@@ -18,7 +18,17 @@ vi.mock("../lib/api", () => {
         ),
       )
     },
-    setToken: vi.fn(),
+    getAccessToken: () => localStorage.getItem("foodexpress_token"),
+    getRefreshToken: () => localStorage.getItem("foodexpress_refresh_token"),
+    setSessionTokens: (t: { accessToken: string; refreshToken: string }) => {
+      localStorage.setItem("foodexpress_token", t.accessToken)
+      localStorage.setItem("foodexpress_refresh_token", t.refreshToken)
+    },
+    clearSession: () => {
+      localStorage.removeItem("foodexpress_token")
+      localStorage.removeItem("foodexpress_refresh_token")
+    },
+    refreshAccessToken: vi.fn(() => null),
   }
 })
 
@@ -65,17 +75,19 @@ describe("AuthProvider – connexion", () => {
     expect(result.current.token).toBe(jwt)
   })
 
-  it("logout efface le token et l'état", async () => {
+  it("logout efface le token, révoque le refresh token et réinitialise l'état", async () => {
     const jwt = makeJwt({ sub: "u1" })
     vi.mocked(api.login).mockResolvedValue({ accessToken: jwt, refreshToken: "r", expiresIn: 300, tokenType: "Bearer" })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
     await act(async () => {
       await result.current.login("a@b.c", "pw")
-      result.current.logout()
+      await result.current.logout()
     })
 
+    expect(api.logout).toHaveBeenCalled()
     expect(localStorage.getItem("foodexpress_token")).toBeNull()
+    expect(localStorage.getItem("foodexpress_refresh_token")).toBeNull()
     expect(result.current.user).toBeNull()
   })
 })

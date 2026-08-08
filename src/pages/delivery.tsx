@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { Bike, MapPin, Phone } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
 import type { OrderDto } from "../lib/api"
 import { useAuth } from "../context/auth"
+import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel, statusTone } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -26,13 +27,11 @@ export function DeliveryPage() {
     }
   }, [user, isAdmin])
 
-  useEffect(() => {
+  usePolling(() => {
     if (!user) return
     setLoading(true)
-    load().finally(() => setLoading(false))
-    const timer = setInterval(load, 10000)
-    return () => clearInterval(timer)
-  }, [load, user])
+    return load().finally(() => setLoading(false))
+  }, 10_000, !!user)
 
   if (loading) {
     return (

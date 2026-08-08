@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
 import type { OrderDto, Restaurant } from "../lib/api"
 import { useAuth } from "../context/auth"
+import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel, statusTone } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -54,13 +55,11 @@ export function OwnerOrdersPage() {
     loadRestaurants()
   }, [loadRestaurants])
 
-  useEffect(() => {
+  usePolling(() => {
     if (!selectedId) return
     setLoading(true)
-    loadOrders().finally(() => setLoading(false))
-    const timer = setInterval(loadOrders, 15000)
-    return () => clearInterval(timer)
-  }, [loadOrders, selectedId])
+    return loadOrders().finally(() => setLoading(false))
+  }, 15_000, !!selectedId)
 
   const pick = (e: ChangeEvent<HTMLSelectElement>) => setSelectedId(e.target.value)
 

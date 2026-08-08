@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { api, ApiError, USER_ROLES } from "../lib/api"
 import type { OrderDto, UserDto } from "../lib/api"
+import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -65,9 +66,7 @@ function OrdersTab() {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  usePolling(load, 15_000)
 
   if (!orders) {
     return (

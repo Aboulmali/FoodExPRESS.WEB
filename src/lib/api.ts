@@ -103,6 +103,7 @@ export interface JwtUser {
   preferred_username?: string
   roles?: string[]
   realm_access?: { roles?: string[] }
+  exp?: number
 }
 
 // ===================== Helpers =====================
@@ -119,29 +120,111 @@ export class ApiError extends Error {
   }
 }
 
-let token: string | null = null
-export function setToken(t: string | null) {
-  token = t
+// ===================== Session (access + refresh) =====================
+
+const TOKEN_KEY = "foodexpress_token"
+const REFRESH_KEY = "foodexpress_refresh_token"
+
+// L'access token est gardé en mémoire + localStorage pour survivre au F5.
+// À terme (production) : cookie HttpOnly + flux OIDC PKCE pour fermer la fenêtre XSS.
+let token: string | null = localStorage.getItem(TOKEN_KEY)
+let refreshToken: string | null = localStorage.getItem(REFRESH_KEY)
+let refreshPromise: Promise<string> | null = null
+
+export function getAccessToken(): string | null {
+  return token
+}
+
+export function getRefreshToken(): string | null {
+  return refreshToken
+}
+
+export function setSessionTokens(t: Pick<LoginResponse, "accessToken" | "refreshToken">) {
+  token = t.accessToken
+  refreshToken = t.refreshToken
+  localStorage.setItem(TOKEN_KEY, t.accessToken)
+  localStorage.setItem(REFRESH_KEY, t.refreshToken)
+}
+
+export function clearSession() {
+  token = null
+  refreshToken = null
+  refreshPromise = null
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_KEY)
+}
+
+// Refresh silencieux avec "single flight" : si plusieurs requêtes reçoivent un
+// 401 en même temps, une seule passe par Keycloak, les autres réutilisent la promesse.
+export function refreshAccessToken(): Promise<string> | null {
+  const current = refreshToken
+  if (!current) return null
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    const res = await fetch(`${BASE}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: current }),
+    })
+    if (!res.ok) {
+      throw new ApiError("Session expirée", res.status)
+    }
+    const t = (await res.json()) as LoginResponse
+    setSessionTokens(t)
+    return t.accessToken
+  })()
+
+  refreshPromise.catch(() => {
+    clearSession()
+  }).finally(() => {
+    refreshPromise = null
+  })
+
+  return refreshPromise
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers)
-  if (options.body !== undefined && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json")
+  const build = () => {
+    const headers = new Headers(options.headers)
+    if (options.body !== undefined && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json")
+    }
+    if (token) headers.set("Authorization", `Bearer ${token}`)
+    return { headers, init: { ...options, headers } as RequestInit }
   }
-  if (token) headers.set("Authorization", `Bearer ${token}`)
 
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, { ...options, headers })
+    const { init } = build()
+    res = await fetch(`${BASE}${path}`, init)
   } catch {
     throw new ApiError("Connexion impossible au serveur. Vérifiez que les API sont lancées.", 0)
   }
 
+  // 401 avec token : on tente un refresh silencieux puis un retry (une seule fois)
+  if (res.status === 401 && token) {
+    try {
+      const fresh = await refreshAccessToken()
+      if (!fresh) throw new ApiError("Session expirée", 401)
+      const headers = new Headers(options.headers)
+      if (options.body !== undefined && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json")
+      }
+      headers.set("Authorization", `Bearer ${fresh}`)
+      try {
+        res = await fetch(`${BASE}${path}`, { ...options, headers })
+      } catch {
+        throw new ApiError("Connexion impossible au serveur. Vérifiez que les API sont lancées.", 0)
+      }
+    } catch {
+      window.dispatchEvent(new Event("foodexpress:unauthorized"))
+      throw new ApiError("Session expirée. Veuillez vous reconnecter.", 401)
+    }
+  }
+
   if (!res.ok) {
-    if (res.status === 401 && token) {
-      setToken(null)
-      localStorage.removeItem("foodexpress_token")
+    if (res.status === 401 && !token) {
       window.dispatchEvent(new Event("foodexpress:unauthorized"))
     }
     let detail = res.status === 429 ? "Trop de requêtes. Réessayez dans une minute." : res.statusText
@@ -195,17 +278,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  logout: () =>
+    request<void>("/api/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: getRefreshToken() }),
+    }),
   register: (data: {
     email: string
     password: string
     firstName: string
     lastName: string
     phoneNumber: string
-    role?: number
   }) =>
     request<unknown>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ ...data, role: data.role ?? 0 }),
+      // Sécurité : jamais de rôle envoyé depuis le client, le backend force Customer.
+      body: JSON.stringify(data),
     }),
 
   // Commandes (auth)

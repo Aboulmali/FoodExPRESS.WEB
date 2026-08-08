@@ -92,7 +92,25 @@ function CreateRestaurantForm({ onCreated }: { onCreated: () => Promise<void> })
     e.preventDefault()
     setBusy(true)
     try {
-      await api.createRestaurant({ ...form, latitude: 0, longitude: 0 })
+      let latitude = 0
+      let longitude = 0
+      if (form.address || form.city) {
+        const query = encodeURIComponent(`${form.address}, ${form.city}`)
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${query}`)
+          const results = (await res.json()) as { lat: string; lon: string }[]
+          if (results.length > 0) {
+            latitude = Number(results[0].lat)
+            longitude = Number(results[0].lon)
+          }
+        } catch {
+          /* géocodage best-effort : on reste sur 0,0 si le service est injoignable */
+        }
+        if (latitude === 0 && longitude === 0) {
+          toast.info("Localisation introuvable : coordonnées par défaut (0,0). Complétez votre adresse plus tard.")
+        }
+      }
+      await api.createRestaurant({ ...form, latitude, longitude })
       toast.success("Restaurant créé !")
       await onCreated()
     } catch (err) {
