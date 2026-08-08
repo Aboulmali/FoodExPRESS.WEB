@@ -10,6 +10,8 @@ import { MenuPage } from "./pages/menu"
 import { OrdersPage } from "./pages/orders"
 import { OrderDetailPage } from "./pages/order-detail"
 import { OwnerDashboardPage } from "./pages/owner-dashboard"
+import { OwnerOrdersPage } from "./pages/owner-orders"
+import { DeliveryPage } from "./pages/delivery"
 import { AdminDashboardPage } from "./pages/admin-dashboard"
 import { LoginPage, RegisterPage } from "./pages/auth"
 
@@ -32,6 +34,10 @@ export default function App() {
               </Route>
               <Route element={<RequireRole roles={["RestaurantOwner", "Admin"]} />}>
                 <Route path="owner" element={<OwnerDashboardPage />} />
+                <Route path="owner/orders" element={<OwnerOrdersPage />} />
+              </Route>
+              <Route element={<RequireRole roles={["DeliveryPerson", "Admin"]} />}>
+                <Route path="delivery" element={<DeliveryPage />} />
               </Route>
               <Route element={<RequireRole roles={["Admin"]} />}>
                 <Route path="admin" element={<AdminDashboardPage />} />
