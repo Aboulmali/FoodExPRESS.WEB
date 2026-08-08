@@ -252,6 +252,7 @@ export function RegisterPage() {
     password: "",
     confirm: "",
   })
+  const [accountType, setAccountType] = useState<"customer" | "restaurant">("customer")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -277,6 +278,7 @@ export function RegisterPage() {
         email: form.email,
         phoneNumber: form.phoneNumber,
         password: form.password,
+        role: accountType === "restaurant" ? 1 : 0,
       })
       toast.success("Compte créé ! Vous pouvez vous connecter.")
       navigate("/login", { replace: true })
@@ -296,6 +298,35 @@ export function RegisterPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setAccountType("customer")}
+            className={
+              "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors " +
+              (accountType === "customer"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:bg-muted")
+            }
+          >
+            <span className="text-sm font-semibold">Je suis un client</span>
+            <span className="text-xs text-muted-foreground">Je commande des repas en ligne</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType("restaurant")}
+            className={
+              "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors " +
+              (accountType === "restaurant"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:bg-muted")
+            }
+          >
+            <span className="text-sm font-semibold">Je suis un restaurant</span>
+            <span className="text-xs text-muted-foreground">Je gère ma carte et mes plats</span>
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field

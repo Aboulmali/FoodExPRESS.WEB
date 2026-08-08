@@ -1,19 +1,24 @@
-import { createContext, useCallback, useContext, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { api, decodeJwt, setToken } from "../lib/api"
 import type { JwtUser } from "../lib/api"
 
+interface RegisterData {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  phoneNumber: string
+  role?: number
+}
+
 interface AuthState {
   user: JwtUser | null
   token: string | null
+  roles: string[]
+  hasRole: (...roles: string[]) => boolean
   login: (email: string, password: string) => Promise<void>
-  register: (data: {
-    email: string
-    password: string
-    firstName: string
-    lastName: string
-    phoneNumber: string
-  }) => Promise<void>
+  register: (data: RegisterData) => Promise<void>
   logout: () => void
 }
 
@@ -39,12 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession({ token: res.accessToken, user: decodeJwt(res.accessToken) })
   }, [])
 
-  const register = useCallback(
-    async (data: { email: string; password: string; firstName: string; lastName: string; phoneNumber: string }) => {
-      await api.register(data)
-    },
-    [],
-  )
+  const register = useCallback(async (data: RegisterData) => {
+    await api.register(data)
+  }, [])
 
   const logout = useCallback(() => {
     localStorage.removeItem("foodexpress_token")
@@ -52,8 +54,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession({ token: null, user: null })
   }, [])
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      if (session.token) logout()
+    }
+    window.addEventListener("foodexpress:unauthorized", onUnauthorized)
+    return () => window.removeEventListener("foodexpress:unauthorized", onUnauthorized)
+  }, [session.token, logout])
+
+  const roles = useMemo(
+    () => session.user?.roles ?? session.user?.realm_access?.roles ?? [],
+    [session.user],
+  )
+
+  const hasRole = useCallback(
+    (...required: string[]) => required.some((r) => roles.includes(r)),
+    [roles],
+  )
+
   return (
-    <AuthContext.Provider value={{ user: session.user, token: session.token, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user: session.user, token: session.token, roles, hasRole, login, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )

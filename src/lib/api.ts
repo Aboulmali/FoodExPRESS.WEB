@@ -88,6 +88,8 @@ export interface JwtUser {
   family_name?: string
   email?: string
   preferred_username?: string
+  roles?: string[]
+  realm_access?: { roles?: string[] }
 }
 
 // ===================== Helpers =====================
@@ -124,6 +126,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
+    if (res.status === 401 && token) {
+      setToken(null)
+      localStorage.removeItem("foodexpress_token")
+      window.dispatchEvent(new Event("foodexpress:unauthorized"))
+    }
     let detail = res.status === 429 ? "Trop de requêtes. Réessayez dans une minute." : res.statusText
     try {
       const j = await res.json()
@@ -131,6 +138,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     } catch {
       /* ignore */
     }
+    if (res.status === 401 && !detail) detail = "Session expirée. Veuillez vous reconnecter."
+    if (res.status === 403) detail = detail || "Accès refusé : permissions insuffisantes."
     throw new ApiError(detail, res.status)
   }
 
@@ -148,7 +157,9 @@ export function decodeJwt(jwt: string): JwtUser | null {
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
         .join(""),
     )
-    return JSON.parse(json) as JwtUser
+    const payload = JSON.parse(json) as JwtUser
+    payload.roles = payload.realm_access?.roles ?? []
+    return payload
   } catch {
     return null
   }
