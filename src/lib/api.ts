@@ -238,6 +238,24 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ newStatus, reason }),
     }),
+  restaurantOrders: (restaurantId: string) =>
+    request<OrderDto[]>(`/api/orders/restaurant/${restaurantId}`),
+  myDeliveryOrders: (deliveryPersonId: string) =>
+    request<OrderDto[]>(`/api/orders/delivery/${deliveryPersonId}`),
+  assignDelivery: (id: string, payload: {
+    deliveryPersonId: string
+    deliveryPersonName: string
+    deliveryPersonPhone: string
+  }) =>
+    request<OrderDto>(`/api/orders/${id}/assign-delivery`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateDeliveryStatus: (id: string, newStatus: number) =>
+    request<OrderDto>(`/api/orders/${id}/delivery-status`, {
+      method: "PUT",
+      body: JSON.stringify({ newStatus }),
+    }),
 
   // Gestion restaurant (RestaurantOwner ou Admin)
   createRestaurant: (data: {

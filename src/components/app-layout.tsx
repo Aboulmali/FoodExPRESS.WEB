@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { NavLink, Outlet } from "react-router-dom"
-import { LogOut, LayoutDashboard, Menu, PackageOpen, ShieldCheck, ShoppingBag, Store, UtensilsCrossed } from "lucide-react"
+import { ClipboardList, LogOut, LayoutDashboard, Menu, PackageOpen, ShieldCheck, ShoppingBag, Store, Truck, UtensilsCrossed } from "lucide-react"
 import { useAuth } from "../context/auth"
 import { useCart } from "../context/cart"
 import { ThemeToggle } from "./theme-toggle"
@@ -44,7 +44,13 @@ export function AppLayout() {
         ? [{ to: "/orders", label: "Mes commandes", icon: PackageOpen, end: false }]
         : []),
       ...(hasRole("RestaurantOwner", "Admin")
+        ? [{ to: "/owner/orders", label: "Commandes resto", icon: ClipboardList, end: false }]
+        : []),
+      ...(hasRole("RestaurantOwner", "Admin")
         ? [{ to: "/owner", label: "Ma gestion", icon: UtensilsCrossed, end: false }]
+        : []),
+      ...(hasRole("DeliveryPerson", "Admin")
+        ? [{ to: "/delivery", label: "Mes livraisons", icon: Truck, end: false }]
         : []),
       ...(hasRole("Admin") ? [{ to: "/admin", label: "Administration", icon: LayoutDashboard, end: false }] : []),
     ],
