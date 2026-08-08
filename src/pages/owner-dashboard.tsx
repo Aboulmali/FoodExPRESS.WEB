@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { ChangeEvent, FormEvent, ReactNode } from "react"
-import { ImagePlus, Plus, Store, Trash2, UtensilsCrossed } from "lucide-react"
+import { Clock, ImagePlus, PackageOpen, Plus, Store, Trash2, UtensilsCrossed, Wallet } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
-import type { Category, Dish, Restaurant } from "../lib/api"
+import type { Category, Dish, OrderDto, Restaurant } from "../lib/api"
+import { usePolling } from "../lib/use-polling"
 import { formatMAD } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -166,6 +168,18 @@ function CreateRestaurantForm({ onCreated }: { onCreated: () => Promise<void> })
   )
 }
 
+function StatTile({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
+      <Icon className="size-5 shrink-0 text-primary" />
+      <div className="min-w-0">
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
+        <p className="text-lg font-semibold leading-tight">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 // ==================== Panneau restaurant =====================
 
 function RestaurantPanel({
@@ -179,6 +193,7 @@ function RestaurantPanel({
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [dishes, setDishes] = useState<Dish[] | null>(null)
+  const [orders, setOrders] = useState<OrderDto[] | null>(null)
 
   const loadDishes = useCallback(async () => {
     try {
@@ -188,9 +203,30 @@ function RestaurantPanel({
     }
   }, [restaurant.id])
 
+  const loadOrders = useCallback(async () => {
+    try {
+      setOrders(await api.restaurantOrders(restaurant.id))
+    } catch {
+      setOrders(null)
+    }
+  }, [restaurant.id])
+
   useEffect(() => {
     loadDishes()
   }, [loadDishes])
+
+  usePolling(loadOrders, 15_000, true)
+
+  const stats = useMemo(() => {
+    const all = orders ?? []
+    const active = all.filter((o) => o.status !== "Cancelled")
+    return {
+      total: all.length,
+      waiting: all.filter((o) => ["Pending", "Accepted", "Preparing"].includes(o.status)).length,
+      revenue: active.reduce((sum, o) => sum + Number(o.totalAmount), 0),
+      items: active.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0),
+    }
+  }, [orders])
 
   const removeRestaurant = async () => {
     if (!confirm("Supprimer définitivement ce restaurant et ses plats ?")) return
@@ -234,6 +270,33 @@ function RestaurantPanel({
             <Trash2 className="size-4" />
             Supprimer
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile
+              icon={PackageOpen}
+              label="Commandes reçues"
+              value={orders === null ? "…" : String(stats.total)}
+            />
+            <StatTile
+              icon={Clock}
+              label="À traiter"
+              value={orders === null ? "…" : String(stats.waiting)}
+            />
+            <StatTile
+              icon={Wallet}
+              label="Chiffre d'affaires"
+              value={orders === null ? "…" : formatMAD(stats.revenue)}
+            />
+            <StatTile
+              icon={UtensilsCrossed}
+              label="Articles vendus"
+              value={orders === null ? "…" : String(stats.items)}
+            />
+          </div>
         </CardContent>
       </Card>
 
