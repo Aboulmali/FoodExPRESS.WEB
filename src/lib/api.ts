@@ -15,7 +15,6 @@ export interface Restaurant {
   openingTime: string
   closingTime: string
   rating: number
-  ownerId?: string
   isActive: boolean
   isOpen: boolean
   dishesCount: number
@@ -346,6 +345,7 @@ export const api = {
     }),
 
   // Gestion restaurant (RestaurantOwner ou Admin)
+  myRestaurants: () => request<Restaurant[]>("/api/restaurants/mine"),
   createRestaurant: (data: {
     name: string
     description: string

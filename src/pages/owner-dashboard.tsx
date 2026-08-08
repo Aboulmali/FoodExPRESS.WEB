@@ -4,7 +4,6 @@ import { ImagePlus, Plus, Store, Trash2, UtensilsCrossed } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
 import type { Category, Dish, Restaurant } from "../lib/api"
-import { useAuth } from "../context/auth"
 import { formatMAD } from "../lib/format"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
@@ -20,18 +19,14 @@ const inputCls = "h-9 w-full"
 // ==================== Page principale =====================
 
 export function OwnerDashboardPage() {
-  const { user } = useAuth()
   const [restaurants, setRestaurants] = useState<Restaurant[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
 
-  const mine = useMemo(
-    () => (restaurants ?? []).filter((r) => r.ownerId && r.ownerId === user?.sub),
-    [restaurants, user],
-  )
+  const mine = useMemo(() => restaurants ?? [], [restaurants])
 
   const loadAll = useCallback(async () => {
     try {
-      const [rests, cats] = await Promise.all([api.restaurants(), api.categories()])
+      const [rests, cats] = await Promise.all([api.myRestaurants(), api.categories()])
       setRestaurants(rests)
       setCategories(cats)
     } catch (err) {

@@ -4,7 +4,6 @@ import { Bike, PackageOpen, Truck } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "../lib/api"
 import type { OrderDto, Restaurant } from "../lib/api"
-import { useAuth } from "../context/auth"
 import { usePolling } from "../lib/use-polling"
 import { formatDateTime, formatMAD, statusLabel, statusTone } from "../lib/format"
 import { Badge } from "../components/ui/badge"
@@ -22,7 +21,6 @@ const NEXT_ACTIONS: Record<string, { label: string; value: number }> = {
 }
 
 export function OwnerOrdersPage() {
-  const { user } = useAuth()
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [selectedId, setSelectedId] = useState<string>("")
   const [orders, setOrders] = useState<OrderDto[]>([])
@@ -33,14 +31,13 @@ export function OwnerOrdersPage() {
 
   const loadRestaurants = useCallback(async () => {
     try {
-      const all = await api.restaurants()
-      const mine = all.filter((r) => r.ownerId && r.ownerId === user?.sub)
+      const mine = await api.myRestaurants()
       setRestaurants(mine)
       if (mine.length > 0) setSelectedId((prev) => (mine.some((r) => r.id === prev) ? prev : mine[0].id))
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Impossible de charger vos restaurants")
     }
-  }, [user])
+  }, [])
 
   const loadOrders = useCallback(async () => {
     if (!selectedId) return
