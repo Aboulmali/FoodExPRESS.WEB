@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { NavLink, Outlet } from "react-router-dom"
-import { LogOut, Menu, PackageOpen, ShoppingBag, Store } from "lucide-react"
+import { LogOut, LayoutDashboard, Menu, PackageOpen, ShieldCheck, ShoppingBag, Store, UtensilsCrossed } from "lucide-react"
 import { useAuth } from "../context/auth"
 import { useCart } from "../context/cart"
 import { ThemeToggle } from "./theme-toggle"
@@ -11,10 +11,12 @@ import { Button } from "./ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "./ui/sheet"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 
-const NAV = [
-  { to: "/", label: "Restaurants", icon: Store, end: true },
-  { to: "/orders", label: "Mes commandes", icon: PackageOpen, end: false },
-]
+const ROLE_LABELS: Record<string, string> = {
+  Admin: "Administrateur",
+  Customer: "Client",
+  RestaurantOwner: "Restaurateur",
+  DeliveryPerson: "Livreur",
+}
 
 function initialsOf(u: { name?: string; preferred_username?: string } | null): string {
   if (!u) return "?"
@@ -28,14 +30,30 @@ function initialsOf(u: { name?: string; preferred_username?: string } | null): s
 }
 
 export function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, roles, hasRole, logout } = useAuth()
   const { count } = useCart()
   const [cartOpen, setCartOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const roleLabel = roles.map((r) => ROLE_LABELS[r]).filter(Boolean).join(", ") || null
+
+  const items = useMemo(
+    () => [
+      { to: "/", label: "Restaurants", icon: Store, end: true },
+      ...(hasRole("Customer", "Admin")
+        ? [{ to: "/orders", label: "Mes commandes", icon: PackageOpen, end: false }]
+        : []),
+      ...(hasRole("RestaurantOwner", "Admin")
+        ? [{ to: "/owner", label: "Ma gestion", icon: UtensilsCrossed, end: false }]
+        : []),
+      ...(hasRole("Admin") ? [{ to: "/admin", label: "Administration", icon: LayoutDashboard, end: false }] : []),
+    ],
+    [hasRole],
+  )
+
   const nav = (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => (
+      {items.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -66,6 +84,12 @@ export function AppLayout() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{user?.name ?? user?.preferred_username ?? "Invité"}</p>
             <p className="truncate text-xs text-muted-foreground">{user?.email ?? "Non connecté"}</p>
+            {roleLabel && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
+                <ShieldCheck className="size-3" />
+                {roleLabel}
+              </p>
+            )}
           </div>
           {user && (
             <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={logout} aria-label="Se déconnecter">

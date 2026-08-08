@@ -3,12 +3,14 @@ import { AuthProvider } from "./context/auth"
 import { CartProvider } from "./context/cart"
 import { ErrorBoundary } from "./components/error-boundary"
 import { AppLayout } from "./components/app-layout"
-import { Protected } from "./components/protected"
+import { Protected, RequireRole } from "./components/protected"
 import { Toaster } from "./components/ui/sonner"
 import { HomePage } from "./pages/home"
 import { MenuPage } from "./pages/menu"
 import { OrdersPage } from "./pages/orders"
 import { OrderDetailPage } from "./pages/order-detail"
+import { OwnerDashboardPage } from "./pages/owner-dashboard"
+import { AdminDashboardPage } from "./pages/admin-dashboard"
 import { LoginPage, RegisterPage } from "./pages/auth"
 
 export default function App() {
@@ -27,6 +29,12 @@ export default function App() {
               <Route element={<Protected />}>
                 <Route path="orders" element={<OrdersPage />} />
                 <Route path="orders/:id" element={<OrderDetailPage />} />
+              </Route>
+              <Route element={<RequireRole roles={["RestaurantOwner", "Admin"]} />}>
+                <Route path="owner" element={<OwnerDashboardPage />} />
+              </Route>
+              <Route element={<RequireRole roles={["Admin"]} />}>
+                <Route path="admin" element={<AdminDashboardPage />} />
               </Route>
             </Route>
 
