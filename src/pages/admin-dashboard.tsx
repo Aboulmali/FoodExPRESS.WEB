@@ -18,6 +18,16 @@ const ORDER_STATUSES = [
   { value: 5, label: "Livrée" },
 ] as const
 
+const STATUS_TO_NUMBER: Record<string, number> = {
+  Pending: 0,
+  Accepted: 1,
+  Preparing: 2,
+  Ready: 3,
+  OnDelivery: 4,
+  Delivered: 5,
+  Cancelled: 6,
+}
+
 export function AdminDashboardPage() {
   return (
     <div className="space-y-6">
@@ -80,7 +90,7 @@ function OrdersTab() {
   }
 
   const cancel = async (id: string) => {
-    const reason = prompt("Raison de l'annulation :") ?? ""
+    const reason = prompt("Raison de l'annulation :")
     if (reason === null) return
     try {
       await api.cancelOrder(id, reason)
@@ -119,10 +129,11 @@ function OrdersTab() {
             <div className="font-semibold">{formatMAD(o.totalAmount)}</div>
             <select
               className="h-9 rounded-md border bg-background px-2 text-sm"
-              value={o.status}
+              value={STATUS_TO_NUMBER[o.status] ?? -1}
               onChange={(e) => updateStatus(o.id, Number(e.target.value))}
               disabled={o.status === "Cancelled"}
             >
+              {o.status === "Cancelled" && <option value={6}>Annulée</option>}
               {ORDER_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}

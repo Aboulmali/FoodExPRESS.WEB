@@ -94,7 +94,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         try {
           const dish = await api.dish(ref.dishId)
           if (dish.isAvailable && dish.stock > 0) {
-            resolved.push({ dish, quantity: Math.min(ref.quantity, dish.stock) })
+            const quantity = Math.max(1, Math.min(ref.quantity, dish.stock))
+            resolved.push({ dish, quantity })
           }
         } catch (err) {
           if (err instanceof ApiError && err.status === 404) continue
@@ -147,7 +148,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateCart((prev) => prev.filter((i) => i.dish.id !== dishId))
         return
       }
-      updateCart((prev) => prev.map((i) => (i.dish.id === dishId ? { ...i, quantity } : i)))
+      updateCart((prev) =>
+        prev.map((i) =>
+          i.dish.id === dishId
+            ? { ...i, quantity: i.dish.stock > 0 ? Math.min(quantity, i.dish.stock) : quantity }
+            : i,
+        ),
+      )
     },
     [updateCart],
   )

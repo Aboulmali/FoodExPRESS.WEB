@@ -490,9 +490,11 @@ function DishFormDialog({
   const [form, setForm] = useState(initial)
   const [busy, setBusy] = useState(false)
 
+  const initialKey = JSON.stringify(initial)
   useEffect(() => {
     setForm(initial)
-  }, [initial])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
